@@ -28,13 +28,10 @@ __author__ = "Sounio Team"
 # to the pure Python implementation.
 # ---------------------------------------------------------------------------
 
-try:
-    from ._sounio_native import Knowledge as _NativeKnowledge
-    Knowledge = _NativeKnowledge
-    _NATIVE = True
-except ImportError:
-    from .knowledge import Knowledge  # type: ignore[assignment]
-    _NATIVE = False
+# A native constructor has different arguments and confidence semantics.
+# Keep the public legacy API stable regardless of optional installed extensions.
+from .knowledge import Knowledge
+_NATIVE = False
 
 # Always expose the pure-Python module so users can import it explicitly.
 from .knowledge import Knowledge as PureKnowledge  # noqa: F401

@@ -23,3 +23,23 @@ Finding disposition:
 - Remaining legacy limitations: compound units are not propagated by the epistemic API; reverse scalar arithmetic methods are not added to that API; expanded_uncertainty remains a default-coverage property. These are not advertised as parity with the native backend.
 
 Validation before this log: 76 tests passed, 2 live compiler checks skipped, 3 subtests passed. An additional missing-parent regression is included in this commit and is run before commit.
+
+## 2026-09-19 — Optional native backend
+
+Target: `native/src/knowledge.rs`. Task: math-review, xai / grok-4.5.
+The reviewer confirmed corrected product/quotient sensitivities and identified
+zero-relative-uncertainty and equality/hash defects. Both are corrected; mutable
+native values reject hashing. Runtime regressions accompany the changes.
+
+Disposition of remaining findings: the claim of GUM propagation for all
+arithmetic was removed. Independence, lack of dimensional algebra, unit-string
+behavior, and abs-as-annotation behavior are explicit in API comments and README.
+These are preserved legacy behaviors, not new covariance, unit-checking, or
+folded-distribution support. The review's missing-tests observation applied to
+the single source file supplied: native runtime tests are present separately.
+No native/Python parity is asserted. A second independent provider remains
+unavailable as recorded above; follow-up review remains outstanding.
+
+Native packaging is optional and explicit through sounio.native, avoiding the
+previous silent replacement of the legacy Python constructor by an incompatible
+native constructor. Cargo check and wheel installation passed locally.

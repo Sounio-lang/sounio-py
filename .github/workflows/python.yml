@@ -23,3 +23,11 @@ jobs:
           cd "$RUNNER_TEMP"
           python -c 'import sounio; assert "site-packages" in sounio.__file__, sounio.__file__'
           python -m pytest "$GITHUB_WORKSPACE/tests" -q
+      - name: Install optional native extension
+        run: python -m pip install ./native
+      - name: Test with native extension installed
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP"
+          python -c 'import sounio.native'
+          python -m pytest "$GITHUB_WORKSPACE/tests" -q

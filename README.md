@@ -87,3 +87,26 @@ The existing `Knowledge` / `PureKnowledge` API uses `epsilon` and a textual
 not interchangeable. The pure-Python legacy type also supports the transported
 `ProvenanceChain` and `ProvenanceNode` tracking API. Native backend reconciliation
 is still in progress and parity is not implied by these exports.
+
+### Optional native extension
+
+The pure-Python installation does not require Rust. To build the optional
+extension from this repository, install `./native` in the same Python environment:
+
+```sh
+python -m pip install .
+python -m pip install ./native
+```
+
+Use `from sounio import native` to select it explicitly. Installing the extension
+never changes `sounio.Knowledge`: the native constructor uses `uncertainty`,
+`confidence`, `unit`, and `prov`, while the legacy constructor uses `epsilon`
+and textual `provenance`. Their full behavior is not interchangeable.
+
+The native numeric operations use independent-input, first-order propagation.
+They do not implement covariance or dimensional algebra: unit strings are
+annotations, addition/subtraction retain the left annotation, and
+multiplication/division clear it. Check unit compatibility before arithmetic.
+`abs` preserves the uncertainty annotation; it does not compute the moments of
+a folded distribution near zero. These inherited behaviors are not claims of
+full GUM coverage or native/Python equivalence.
