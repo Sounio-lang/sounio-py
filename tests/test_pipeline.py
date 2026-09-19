@@ -62,6 +62,20 @@ def pipeline() -> DrugDiscoveryPipeline:
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture
+def isolated_parser_environment(tmp_path, monkeypatch):
+    """Only parsing/report tests use this fixture; no compiler result is simulated."""
+    root = tmp_path / "drug-discovery"
+    examples = root / "examples"
+    examples.mkdir(parents=True)
+    for name in ("screening_demo.sio", "pkpd_demo.sio", "full_pipeline.sio"):
+        (examples / name).write_text("// Filename fixture, never executed\n")
+    monkeypatch.setenv("SOUNIO_DRUG_DISCOVERY_PATH", str(root))
+    # Parsing must not invoke the configured compiler.
+    monkeypatch.setenv("SOUC", str(tmp_path / "must-not-be-executed"))
+
+
+@pytest.mark.usefixtures("isolated_parser_environment")
 class TestPipelineInit:
     def test_pipeline_finds_dir(self) -> None:
         """_find_pipeline_dir must locate drug-discovery without explicit path."""
@@ -92,6 +106,7 @@ class TestPipelineInit:
         assert "full_pipeline" in stages, f"stages={stages}"
 
 
+@pytest.mark.usefixtures("isolated_parser_environment")
 class TestParsePipelineResult:
     """Test _parse_pipeline_result with a mocked ExecutionResult."""
 
@@ -197,6 +212,7 @@ FINAL DECISION
         assert result.provenance_chain == []
 
 
+@pytest.mark.usefixtures("isolated_parser_environment")
 class TestGenerateReportUnit:
     """Test generate_report without running souc."""
 
