@@ -43,6 +43,7 @@ from .knowledge import Knowledge as PureKnowledge  # noqa: F401
 # Executor
 # ---------------------------------------------------------------------------
 
+from ._compile import compile as compile_sio, run as run_sio
 from ._executor import SounioExecutor, ExecutionResult, CheckResult  # noqa: F401
 
 # ---------------------------------------------------------------------------
@@ -155,6 +156,8 @@ except ImportError:
 __all__ = [
     # Core
     "Knowledge",
+    "compile_sio",
+    "run_sio",
     "PureKnowledge",
     # Executor
     "SounioExecutor",
