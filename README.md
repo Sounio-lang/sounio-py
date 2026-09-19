@@ -110,3 +110,13 @@ multiplication/division clear it. Check unit compatibility before arithmetic.
 `abs` preserves the uncertainty annotation; it does not compute the moments of
 a folded distribution near zero. These inherited behaviors are not claims of
 full GUM coverage or native/Python equivalence.
+
+### Jupyter consumer
+
+The `jupyter/` subproject builds the separately installable `sounio-kernel`
+package. Install the Python package first, then `python -m pip install ./jupyter`.
+The kernel uses the same installed `souc` launcher and bundled-stdlib selection
+as the Python executor. A cell containing a declaration extends the session;
+a subsequent expression cell evaluates in that session. The external consumer
+test in `jupyter/tests/external_consumer.py` starts an actual kernel and requires
+a working installed compiler.
