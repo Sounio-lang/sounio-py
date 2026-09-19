@@ -1,4 +1,5 @@
 """CLI discovery contract; fake launchers test plumbing, not compiler semantics."""
+import asyncio
 import os
 from pathlib import Path
 import tempfile
@@ -49,6 +50,15 @@ class DistributionResolutionTests(unittest.TestCase):
         with patch.dict(os.environ, {"PATH": ""}):
             with self.assertRaisesRegex(FileNotFoundError, "Install the Madaros distribution"):
                 SounioExecutor()
+
+    def test_async_run_uses_same_distribution_environment(self):
+        result = asyncio.run(SounioExecutor().async_run_code("unused"))
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.stdout, "run\nunset\n")
+
+    def test_async_check_uses_same_launcher(self):
+        result = asyncio.run(SounioExecutor().async_check_file("unused.sio"))
+        self.assertTrue(result.success)
 
     def test_check_uses_selected_launcher(self):
         self.assertTrue(SounioExecutor().check_file("unused.sio").success)

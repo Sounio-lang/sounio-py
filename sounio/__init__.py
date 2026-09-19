@@ -111,6 +111,16 @@ def check_file(path: str, **kwargs) -> CheckResult:
     return get_executor().check_file(path, **kwargs)
 
 
+async def async_run_file(path: str, timeout: float = 60.0) -> ExecutionResult:
+    """Run a Sounio source file asynchronously through the selected compiler."""
+    return await get_executor().async_run_file(path, timeout=timeout)
+
+
+async def async_run_code(code: str, timeout: float = 60.0) -> ExecutionResult:
+    """Run inline Sounio source asynchronously through the selected compiler."""
+    return await get_executor().async_run_code(code, timeout=timeout)
+
+
 # ---------------------------------------------------------------------------
 # Optional integrations
 # ---------------------------------------------------------------------------
@@ -178,6 +188,8 @@ __all__ = [
     "reset_executor",
     "run_file",
     "run_code",
+    "async_run_file",
+    "async_run_code",
     "check_file",
     # Meta
     "__version__",
