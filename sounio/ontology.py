@@ -79,14 +79,14 @@ def _default_ontology_home() -> Path:
     env = os.environ.get("SOUNIO_ONTOLOGY_HOME")
     if env:
         return Path(env)
-    return _repo_root() / "data" / "ontology" / "bundles"
+    return Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local" / "share"))) / "sounio" / "ontology" / "bundles"
 
 
 def _default_cache_dir() -> Path:
     env = os.environ.get("SOUNIO_ONTOLOGY_CACHE_DIR")
     if env:
         return Path(env)
-    return _repo_root() / "data" / "ontology" / "cache"
+    return Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache"))) / "sounio" / "ontology"
 
 
 def _default_mode() -> str:
