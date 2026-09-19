@@ -20,7 +20,7 @@ Knowledge(38.000 ± 0.112, prov='(thermometer)+(barometer)')
 
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Sounio Team"
 
 # ---------------------------------------------------------------------------
@@ -45,6 +45,7 @@ from .provenance import ProvenanceChain, ProvenanceNode
 # Executor
 # ---------------------------------------------------------------------------
 
+from .dashboard import create_app, serve_dashboard
 from .kernel_client import KernelConnection, KernelResult, launch_jupyter_kernel
 from ._compile import compile as compile_sio, run as run_sio
 from ._executor import SounioExecutor, ExecutionResult, CheckResult  # noqa: F401
@@ -159,6 +160,8 @@ except ImportError:
 __all__ = [
     # Core
     "Knowledge",
+    "create_app",
+    "serve_dashboard",
     "KernelConnection",
     "KernelResult",
     "launch_jupyter_kernel",

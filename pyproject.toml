@@ -22,7 +22,14 @@ keywords = ["sounio", "epistemic", "uncertainty", "scientific-computing", "pharm
 [project.urls]
 Homepage = "https://github.com/Sounio-lang/sounio"
 Documentation = "https://github.com/Sounio-lang/sounio/blob/main/docs/LLM_PROGRAMMING_GUIDE.md"
-Repository = "https://github.com/Sounio-lang/sounio"
+Repository = "https://github.com/Sounio-lang/sounio-py"
 
 [tool.setuptools.packages.find]
 include = ["sounio*"]
+
+[project.optional-dependencies]
+dashboard = ["flask>=2.0"]
+jupyter = ["jupyter_client>=7"]
+numpy = ["numpy>=1.24"]
+pandas = ["pandas>=2.0"]
+test = ["pytest>=7"]
