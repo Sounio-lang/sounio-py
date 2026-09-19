@@ -1,4 +1,4 @@
-"""SounioExecutor — subprocess wrapper around the souc JIT binary.
+"""SounioExecutor — subprocess wrapper around the installed souc CLI.
 
 Exposes run_file, run_code, and check_file with structured return types.
 Knowledge values printed by the running program are parsed from stdout
@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -107,7 +108,7 @@ _KNOWLEDGE_RE = re.compile(
 
 
 class SounioExecutor:
-    """Execute Sounio code via the souc JIT binary.
+    """Execute Sounio code via the installed souc CLI.
 
     Parameters
     ----------
@@ -116,63 +117,50 @@ class SounioExecutor:
         (in order):
         1. ``SOUC`` environment variable.
         2. ``SOUNIO_SOUC_PATH`` environment variable.
-        3. Repo-relative default path.
+        3. ``SOUC_BIN`` environment variable.
+        4. ``souc`` on PATH.
     stdlib_path : str, optional
         Path to the Sounio stdlib.  Defaults to ``SOUNIO_STDLIB_PATH`` env var
-        or the repo-relative ``stdlib/`` directory.
+        or the installed launcher's matching stdlib.
     """
-
-    # Repo-relative default (works when cwd is the repo root or sounio-py/).
-    _DEFAULT_SOUC_CANDIDATES = [
-        # Running from sounio-py/ inside the repo
-        "../../../../artifacts/omega/souc-bin/souc-linux-x86_64-jit",
-        # Running from repo root
-        "artifacts/omega/souc-bin/souc-linux-x86_64-jit",
-    ]
-    _DEFAULT_STDLIB_CANDIDATES = [
-        "../../../../stdlib",
-        "stdlib",
-    ]
 
     def __init__(
         self,
         souc_path: Optional[str] = None,
         stdlib_path: Optional[str] = None,
     ) -> None:
-        self.souc_path = souc_path or self._resolve_souc()
-        self.stdlib_path = stdlib_path or self._resolve_stdlib()
+        self.souc_path = self._resolve_souc(souc_path)
+        self.stdlib_path = stdlib_path or os.environ.get("SOUNIO_STDLIB_PATH")
+        if self.stdlib_path:
+            self.stdlib_path = str(Path(self.stdlib_path).expanduser().absolute())
 
-    # ---- Resolution helpers -----------------------------------------------
-
-    @classmethod
-    def _resolve_souc(cls) -> str:
-        for var in ("SOUC", "SOUNIO_SOUC_PATH"):
-            val = os.environ.get(var)
-            if val and Path(val).exists():
-                return val
-        for rel in cls._DEFAULT_SOUC_CANDIDATES:
-            p = Path(rel)
-            if p.exists():
-                return str(p.resolve())
-        # Return the first candidate even if missing; error surfaces at run time.
-        return cls._DEFAULT_SOUC_CANDIDATES[-1]
-
-    @classmethod
-    def _resolve_stdlib(cls) -> str:
-        val = os.environ.get("SOUNIO_STDLIB_PATH")
-        if val:
-            return val
-        for rel in cls._DEFAULT_STDLIB_CANDIDATES:
-            p = Path(rel)
-            if p.exists():
-                return str(p.resolve())
-        return cls._DEFAULT_STDLIB_CANDIDATES[-1]
-
-    # ---- Core I/O ---------------------------------------------------------
+    @staticmethod
+    def _resolve_souc(explicit: Optional[str] = None) -> str:
+        # Explicit configuration must never silently select a different compiler.
+        configured = explicit
+        if not configured:
+            for var in ("SOUC", "SOUNIO_SOUC_PATH", "SOUC_BIN"):
+                if os.environ.get(var):
+                    configured = os.environ[var]
+                    break
+        if configured:
+            expanded = os.path.expanduser(configured)
+            if os.path.dirname(expanded):
+                return str(Path(expanded).absolute())
+            return shutil.which(expanded) or expanded
+        installed = shutil.which("souc")
+        if installed:
+            return str(Path(installed).absolute())
+        raise FileNotFoundError(
+            "Sounio compiler not found. Install the Madaros distribution and add "
+            "its bin directory to PATH, or set SOUC to its bin/souc launcher."
+        )
 
     def _build_env(self) -> dict:
         env = dict(os.environ)
-        env["SOUNIO_STDLIB_PATH"] = self.stdlib_path
+        # With no override the distribution launcher selects its matching stdlib.
+        if self.stdlib_path:
+            env["SOUNIO_STDLIB_PATH"] = self.stdlib_path
         return env
 
     @staticmethod
@@ -186,7 +174,7 @@ class SounioExecutor:
     # ---- Public API -------------------------------------------------------
 
     def run_file(self, path: str, timeout: int = 30) -> ExecutionResult:
-        """JIT-run a .sio file and return a structured result.
+        """Run a .sio file and return a structured result.
 
         Parameters
         ----------

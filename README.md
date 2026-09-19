@@ -55,3 +55,25 @@ print(rb.to_markdown())
 ## License
 
 Apache-2.0
+
+### Installed compiler discovery
+
+Install a versioned Madaros distribution and add its `bin` directory to `PATH`.
+`SounioExecutor` uses an explicit `souc_path` first, then `SOUC`,
+`SOUNIO_SOUC_PATH`, `SOUC_BIN`, and finally `souc` on `PATH`. An invalid explicit
+selection fails instead of silently running another compiler. Paths containing
+spaces are supported. Select the distribution's `bin/souc` launcher rather than
+its raw ELF so compiler routing remains owned by the distribution.
+
+Without an explicit `stdlib_path` or `SOUNIO_STDLIB_PATH`, the launcher selects
+its bundled, matching standard library. Python does not infer a standard library
+from the current working directory.
+
+The discovery contract is tested with:
+
+```sh
+python -m unittest discover -s tests -p test_distribution_resolution.py -v
+```
+
+These tests use fixture launchers and validate subprocess routing only; actual
+compiler execution is a separate integration check.
