@@ -77,3 +77,13 @@ python -m unittest discover -s tests -p test_distribution_resolution.py -v
 
 These tests use fixture launchers and validate subprocess routing only; actual
 compiler execution is a separate integration check.
+
+### Knowledge API compatibility during consolidation
+
+The existing `Knowledge` / `PureKnowledge` API uses `epsilon` and a textual
+`provenance`. The imported uncertainty/confidence API is exposed separately as
+`EpistemicKnowledge`, with `measure`, `confidence_gate`, `EpistemicResult`, and
+`GUMPropagation`. These APIs have distinct constructors and semantics; they are
+not interchangeable. The pure-Python legacy type also supports the transported
+`ProvenanceChain` and `ProvenanceNode` tracking API. Native backend reconciliation
+is still in progress and parity is not implied by these exports.

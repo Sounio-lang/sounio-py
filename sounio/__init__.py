@@ -39,6 +39,11 @@ except ImportError:
 # Always expose the pure-Python module so users can import it explicitly.
 from .knowledge import Knowledge as PureKnowledge  # noqa: F401
 
+# Preserve the distinct uncertainty/confidence API without changing Knowledge.
+from ._knowledge import Knowledge as EpistemicKnowledge, measure, confidence_gate
+from ._epistemic import EpistemicResult, GUMPropagation
+from .provenance import ProvenanceChain, ProvenanceNode
+
 # ---------------------------------------------------------------------------
 # Executor
 # ---------------------------------------------------------------------------
@@ -163,6 +168,13 @@ __all__ = [
     "compile_sio",
     "run_sio",
     "PureKnowledge",
+    "EpistemicKnowledge",
+    "measure",
+    "confidence_gate",
+    "EpistemicResult",
+    "GUMPropagation",
+    "ProvenanceChain",
+    "ProvenanceNode",
     # Executor
     "SounioExecutor",
     "ExecutionResult",
