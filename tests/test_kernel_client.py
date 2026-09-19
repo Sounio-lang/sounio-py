@@ -12,6 +12,7 @@ def message(kind, content, parent='current'):
 def connection(messages):
     client = Mock()
     client.execute.return_value = 'current'
+    client.get_shell_msg.return_value = message('execute_reply', {'status': 'ok'})
     client.get_iopub_msg.side_effect = messages
     return KernelConnection(Mock(), client)
 
@@ -46,3 +47,9 @@ def test_error_output_retains_failed_status():
     result = kernel.execute('source')
     assert not result.ok
     assert result.stderr == 'rejected'
+
+
+def test_shell_reply_error_is_not_hidden_by_idle():
+    kernel = connection([message('status', {'execution_state': 'idle'})])
+    kernel._kc.get_shell_msg.return_value = message('execute_reply', {'status': 'error'})
+    assert not kernel.execute('invalid').ok

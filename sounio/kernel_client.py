@@ -151,6 +151,23 @@ class KernelConnection:
                 if content.get("execution_state") == "idle":
                     break
 
+        # Execution status is authoritative on the shell reply channel.
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("Kernel did not send an execution reply")
+            try:
+                reply = self._kc.get_shell_msg(timeout=remaining)
+            except Empty as exc:
+                raise TimeoutError("Kernel did not send an execution reply") from exc
+            if reply.get("parent_header", {}).get("msg_id") != message_id:
+                continue
+            if reply.get("msg_type") != "execute_reply":
+                continue
+            if reply.get("content", {}).get("status") != "ok":
+                status = "error"
+            break
+
         stdout = "".join(stdout_parts)
         stderr = "".join(stderr_parts)
         knowledge_values = [
