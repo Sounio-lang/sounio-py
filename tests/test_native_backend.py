@@ -1,7 +1,10 @@
 """Optional native tests; CI native stage must install the extension first."""
 import pytest
 
-native = pytest.importorskip('sounio.native')
+import importlib.util
+if importlib.util.find_spec('_sounio_native') is None:
+    pytest.skip('Optional native extension is not installed', allow_module_level=True)
+from sounio import native
 
 
 def test_native_install_does_not_change_legacy_constructor():
