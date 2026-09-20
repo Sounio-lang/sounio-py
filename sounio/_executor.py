@@ -1,4 +1,4 @@
-"""SounioExecutor — subprocess wrapper around the souc JIT binary.
+"""SounioExecutor — subprocess wrapper around the installed souc CLI.
 
 Exposes run_file, run_code, and check_file with structured return types.
 Knowledge values printed by the running program are parsed from stdout
@@ -9,8 +9,10 @@ using the canonical souc format:
 
 from __future__ import annotations
 
+import asyncio
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -107,7 +109,7 @@ _KNOWLEDGE_RE = re.compile(
 
 
 class SounioExecutor:
-    """Execute Sounio code via the souc JIT binary.
+    """Execute Sounio code via the installed souc CLI.
 
     Parameters
     ----------
@@ -116,63 +118,50 @@ class SounioExecutor:
         (in order):
         1. ``SOUC`` environment variable.
         2. ``SOUNIO_SOUC_PATH`` environment variable.
-        3. Repo-relative default path.
+        3. ``SOUC_BIN`` environment variable.
+        4. ``souc`` on PATH.
     stdlib_path : str, optional
         Path to the Sounio stdlib.  Defaults to ``SOUNIO_STDLIB_PATH`` env var
-        or the repo-relative ``stdlib/`` directory.
+        or the installed launcher's matching stdlib.
     """
-
-    # Repo-relative default (works when cwd is the repo root or sounio-py/).
-    _DEFAULT_SOUC_CANDIDATES = [
-        # Running from sounio-py/ inside the repo
-        "../../../../artifacts/omega/souc-bin/souc-linux-x86_64-jit",
-        # Running from repo root
-        "artifacts/omega/souc-bin/souc-linux-x86_64-jit",
-    ]
-    _DEFAULT_STDLIB_CANDIDATES = [
-        "../../../../stdlib",
-        "stdlib",
-    ]
 
     def __init__(
         self,
         souc_path: Optional[str] = None,
         stdlib_path: Optional[str] = None,
     ) -> None:
-        self.souc_path = souc_path or self._resolve_souc()
-        self.stdlib_path = stdlib_path or self._resolve_stdlib()
+        self.souc_path = self._resolve_souc(souc_path)
+        self.stdlib_path = stdlib_path or os.environ.get("SOUNIO_STDLIB_PATH")
+        if self.stdlib_path:
+            self.stdlib_path = str(Path(self.stdlib_path).expanduser().absolute())
 
-    # ---- Resolution helpers -----------------------------------------------
-
-    @classmethod
-    def _resolve_souc(cls) -> str:
-        for var in ("SOUC", "SOUNIO_SOUC_PATH"):
-            val = os.environ.get(var)
-            if val and Path(val).exists():
-                return val
-        for rel in cls._DEFAULT_SOUC_CANDIDATES:
-            p = Path(rel)
-            if p.exists():
-                return str(p.resolve())
-        # Return the first candidate even if missing; error surfaces at run time.
-        return cls._DEFAULT_SOUC_CANDIDATES[-1]
-
-    @classmethod
-    def _resolve_stdlib(cls) -> str:
-        val = os.environ.get("SOUNIO_STDLIB_PATH")
-        if val:
-            return val
-        for rel in cls._DEFAULT_STDLIB_CANDIDATES:
-            p = Path(rel)
-            if p.exists():
-                return str(p.resolve())
-        return cls._DEFAULT_STDLIB_CANDIDATES[-1]
-
-    # ---- Core I/O ---------------------------------------------------------
+    @staticmethod
+    def _resolve_souc(explicit: Optional[str] = None) -> str:
+        # Explicit configuration must never silently select a different compiler.
+        configured = explicit
+        if not configured:
+            for var in ("SOUC", "SOUNIO_SOUC_PATH", "SOUC_BIN"):
+                if os.environ.get(var):
+                    configured = os.environ[var]
+                    break
+        if configured:
+            expanded = os.path.expanduser(configured)
+            if os.path.dirname(expanded):
+                return str(Path(expanded).absolute())
+            return shutil.which(expanded) or expanded
+        installed = shutil.which("souc")
+        if installed:
+            return str(Path(installed).absolute())
+        raise FileNotFoundError(
+            "Sounio compiler not found. Install the Madaros distribution and add "
+            "its bin directory to PATH, or set SOUC to its bin/souc launcher."
+        )
 
     def _build_env(self) -> dict:
         env = dict(os.environ)
-        env["SOUNIO_STDLIB_PATH"] = self.stdlib_path
+        # With no override the distribution launcher selects its matching stdlib.
+        if self.stdlib_path:
+            env["SOUNIO_STDLIB_PATH"] = self.stdlib_path
         return env
 
     @staticmethod
@@ -186,7 +175,7 @@ class SounioExecutor:
     # ---- Public API -------------------------------------------------------
 
     def run_file(self, path: str, timeout: int = 30) -> ExecutionResult:
-        """JIT-run a .sio file and return a structured result.
+        """Run a .sio file and return a structured result.
 
         Parameters
         ----------
@@ -272,6 +261,115 @@ class SounioExecutor:
             errors=proc.stderr,
             ast=ast_dump,
             types=types_dump,
+        )
+
+    # ---- Async API --------------------------------------------------------
+
+    async def async_run_file(self, path: str, timeout: float = 60.0) -> ExecutionResult:
+        """Async version of run_file using asyncio subprocesses.
+
+        Parameters
+        ----------
+        path : str
+            Path to the ``.sio`` file.
+        timeout : float
+            Maximum seconds to wait (default 60).
+        """
+        env = self._build_env()
+        proc = await asyncio.create_subprocess_exec(
+            self.souc_path, "run", path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env,
+        )
+        try:
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                proc.communicate(), timeout=timeout
+            )
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.communicate()
+            raise
+        stdout = stdout_bytes.decode()
+        stderr = stderr_bytes.decode()
+        return ExecutionResult(
+            stdout=stdout,
+            stderr=stderr,
+            exit_code=proc.returncode,
+            knowledge_values=self._parse_knowledge(stdout),
+        )
+
+    async def async_run_code(self, code: str, timeout: float = 60.0) -> ExecutionResult:
+        """Async version of run_code.
+
+        Parameters
+        ----------
+        code : str
+            Sounio source code to run.
+        timeout : float
+            Maximum seconds to wait (default 60).
+        """
+        with tempfile.NamedTemporaryFile(
+            suffix=".sio", mode="w", delete=False
+        ) as fh:
+            fh.write(code)
+            tmp_path = fh.name
+        try:
+            return await self.async_run_file(tmp_path, timeout=timeout)
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+    async def async_check_file(
+        self,
+        path: str,
+        show_ast: bool = False,
+        show_types: bool = False,
+        timeout: float = 30.0,
+    ) -> CheckResult:
+        """Async version of check_file.
+
+        Parameters
+        ----------
+        path : str
+            Path to the ``.sio`` file.
+        show_ast : bool
+            Pass ``--show-ast`` to the compiler.
+        show_types : bool
+            Pass ``--show-types`` to the compiler.
+        timeout : float
+            Maximum seconds to wait (default 30).
+        """
+        cmd = [self.souc_path, "check", path]
+        if show_ast:
+            cmd.append("--show-ast")
+        if show_types:
+            cmd.append("--show-types")
+
+        env = self._build_env()
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env,
+        )
+        try:
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                proc.communicate(), timeout=timeout
+            )
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.communicate()
+            raise
+        stdout = stdout_bytes.decode()
+        stderr = stderr_bytes.decode()
+        return CheckResult(
+            success=proc.returncode == 0,
+            errors=stderr,
+            ast=stdout if show_ast else None,
+            types=stdout if show_types else None,
         )
 
     # ---- Convenience repr ------------------------------------------------

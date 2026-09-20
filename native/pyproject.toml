@@ -1,0 +1,14 @@
+[build-system]
+requires = ["maturin>=1.4,<2"]
+build-backend = "maturin"
+
+[project]
+name = "sounio-native"
+version = "0.2.0"
+description = "Optional native epistemic backend for Sounio Python"
+requires-python = ">=3.9"
+license = {text = "Apache-2.0"}
+
+[tool.maturin]
+module-name = "_sounio_native"
+features = ["pyo3/extension-module"]

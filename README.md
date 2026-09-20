@@ -55,3 +55,68 @@ print(rb.to_markdown())
 ## License
 
 Apache-2.0
+
+### Installed compiler discovery
+
+Install a versioned Madaros distribution and add its `bin` directory to `PATH`.
+`SounioExecutor` uses an explicit `souc_path` first, then `SOUC`,
+`SOUNIO_SOUC_PATH`, `SOUC_BIN`, and finally `souc` on `PATH`. An invalid explicit
+selection fails instead of silently running another compiler. Paths containing
+spaces are supported. Select the distribution's `bin/souc` launcher rather than
+its raw ELF so compiler routing remains owned by the distribution.
+
+Without an explicit `stdlib_path` or `SOUNIO_STDLIB_PATH`, the launcher selects
+its bundled, matching standard library. Python does not infer a standard library
+from the current working directory.
+
+The discovery contract is tested with:
+
+```sh
+python -m unittest discover -s tests -p test_distribution_resolution.py -v
+```
+
+These tests use fixture launchers and validate subprocess routing only; actual
+compiler execution is a separate integration check.
+
+### Knowledge API compatibility during consolidation
+
+The existing `Knowledge` / `PureKnowledge` API uses `epsilon` and a textual
+`provenance`. The imported uncertainty/confidence API is exposed separately as
+`EpistemicKnowledge`, with `measure`, `confidence_gate`, `EpistemicResult`, and
+`GUMPropagation`. These APIs have distinct constructors and semantics; they are
+not interchangeable. The pure-Python legacy type also supports the transported
+`ProvenanceChain` and `ProvenanceNode` tracking API. Native backend reconciliation
+is still in progress and parity is not implied by these exports.
+
+### Optional native extension
+
+The pure-Python installation does not require Rust. To build the optional
+extension from this repository, install `./native` in the same Python environment:
+
+```sh
+python -m pip install .
+python -m pip install ./native
+```
+
+Use `from sounio import native` to select it explicitly. Installing the extension
+never changes `sounio.Knowledge`: the native constructor uses `uncertainty`,
+`confidence`, `unit`, and `prov`, while the legacy constructor uses `epsilon`
+and textual `provenance`. Their full behavior is not interchangeable.
+
+The native numeric operations use independent-input, first-order propagation.
+They do not implement covariance or dimensional algebra: unit strings are
+annotations, addition/subtraction retain the left annotation, and
+multiplication/division clear it. Check unit compatibility before arithmetic.
+`abs` preserves the uncertainty annotation; it does not compute the moments of
+a folded distribution near zero. These inherited behaviors are not claims of
+full GUM coverage or native/Python equivalence.
+
+### Jupyter consumer
+
+The `jupyter/` subproject builds the separately installable `sounio-kernel`
+package. Install the Python package first, then `python -m pip install ./jupyter`.
+The kernel uses the same installed `souc` launcher and bundled-stdlib selection
+as the Python executor. A cell containing a declaration extends the session;
+a subsequent expression cell evaluates in that session. The external consumer
+test in `jupyter/tests/external_consumer.py` starts an actual kernel and requires
+a working installed compiler.

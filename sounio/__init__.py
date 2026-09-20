@@ -20,7 +20,7 @@ Knowledge(38.000 ± 0.112, prov='(thermometer)+(barometer)')
 
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Sounio Team"
 
 # ---------------------------------------------------------------------------
@@ -28,21 +28,26 @@ __author__ = "Sounio Team"
 # to the pure Python implementation.
 # ---------------------------------------------------------------------------
 
-try:
-    from ._sounio_native import Knowledge as _NativeKnowledge
-    Knowledge = _NativeKnowledge
-    _NATIVE = True
-except ImportError:
-    from .knowledge import Knowledge  # type: ignore[assignment]
-    _NATIVE = False
+# A native constructor has different arguments and confidence semantics.
+# Keep the public legacy API stable regardless of optional installed extensions.
+from .knowledge import Knowledge
+_NATIVE = False
 
 # Always expose the pure-Python module so users can import it explicitly.
 from .knowledge import Knowledge as PureKnowledge  # noqa: F401
+
+# Preserve the distinct uncertainty/confidence API without changing Knowledge.
+from ._knowledge import Knowledge as EpistemicKnowledge, measure, confidence_gate
+from ._epistemic import EpistemicResult, GUMPropagation
+from .provenance import ProvenanceChain, ProvenanceNode
 
 # ---------------------------------------------------------------------------
 # Executor
 # ---------------------------------------------------------------------------
 
+from .dashboard import create_app, serve_dashboard
+from .kernel_client import KernelConnection, KernelResult, launch_jupyter_kernel
+from ._compile import compile as compile_sio, run as run_sio
 from ._executor import SounioExecutor, ExecutionResult, CheckResult  # noqa: F401
 
 # ---------------------------------------------------------------------------
@@ -111,6 +116,16 @@ def check_file(path: str, **kwargs) -> CheckResult:
     return get_executor().check_file(path, **kwargs)
 
 
+async def async_run_file(path: str, timeout: float = 60.0) -> ExecutionResult:
+    """Run a Sounio source file asynchronously through the selected compiler."""
+    return await get_executor().async_run_file(path, timeout=timeout)
+
+
+async def async_run_code(code: str, timeout: float = 60.0) -> ExecutionResult:
+    """Run inline Sounio source asynchronously through the selected compiler."""
+    return await get_executor().async_run_code(code, timeout=timeout)
+
+
 # ---------------------------------------------------------------------------
 # Optional integrations
 # ---------------------------------------------------------------------------
@@ -145,7 +160,21 @@ except ImportError:
 __all__ = [
     # Core
     "Knowledge",
+    "create_app",
+    "serve_dashboard",
+    "KernelConnection",
+    "KernelResult",
+    "launch_jupyter_kernel",
+    "compile_sio",
+    "run_sio",
     "PureKnowledge",
+    "EpistemicKnowledge",
+    "measure",
+    "confidence_gate",
+    "EpistemicResult",
+    "GUMPropagation",
+    "ProvenanceChain",
+    "ProvenanceNode",
     # Executor
     "SounioExecutor",
     "ExecutionResult",
@@ -178,6 +207,8 @@ __all__ = [
     "reset_executor",
     "run_file",
     "run_code",
+    "async_run_file",
+    "async_run_code",
     "check_file",
     # Meta
     "__version__",
